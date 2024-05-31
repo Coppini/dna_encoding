@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from enum import IntEnum
 from math import ceil, sqrt
 from typing import Iterable, NamedTuple, Optional
 
