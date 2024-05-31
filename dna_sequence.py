@@ -40,101 +40,6 @@ class DNASequence:
     )
     header: Optional[str] = None  # Header information (optional)
 
-    @staticmethod
-    def determine_encoding_type(bases: set) -> Encoding:
-        """
-        Determine the encoding type based on the given DNA sequence.
-
-        Args:
-            sequence (str): The DNA sequence.
-
-        Returns:
-            Encoding: The encoding type (bits to be used per nucleotide)
-        """
-        encoding_type = (
-            Encoding.BIT4_FULL_IUPAC
-            if bases.intersection(DEGENERATE_BASES)
-            else (
-                Encoding.BIT3_Ns_and_GAPs
-                if bases.intersection(NS_AND_GAPS)
-                else Encoding.BIT2_ATCG
-            )
-        )
-        if invalid_bases := bases.difference(
-            ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]
-        ):
-            raise ValueError(f"Invalid bases in the sequence: {list(invalid_bases)}")
-        return encoding_type
-
-    @staticmethod
-    def encode_sequence(sequence: str) -> EncodedSequence:
-        """
-        Encode a DNA sequence and return the sequence length, encoded bytes, and encoding type.
-
-        Args:
-            sequence (str): The DNA sequence to encode.
-
-        Returns:
-            tuple: Sequence length, Encoded bytes, and encoding type.
-        """
-        sequence = sequence.upper()
-        length = len(sequence)
-
-        # Determine the encoding type based on the sequence content
-        encoding_type = DNASequence.determine_encoding_type(set(sequence))
-        padding_length = (8 - ((length * encoding_type) % 8)) % 8
-
-        # Create a binary string based on the mapping
-        try:
-            binary_string = "0" * padding_length + "".join(
-                ENCODE_MAPPING[encoding_type][nucleotide] for nucleotide in sequence
-            )
-        except KeyError as exc:
-            invalid_characters = sorted(
-                set(base for base in sequence if base not in ENCODE_MAPPING[4])
-            )
-            raise ValueError(
-                f"Invalid bases in the sequence: {list(invalid_characters)}"
-            ) from exc
-
-        # Convert the binary string to bytes
-        encoded_bytes = int(binary_string, 2).to_bytes(
-            (len(binary_string) + 7) // 8, byteorder="big"
-        )
-
-        return EncodedSequence(length, encoded_bytes, encoding_type)
-
-    @staticmethod
-    def decode_sequence(
-        length: int, encoded_bytes: bytes, encoding_type: Encoding
-    ) -> str:
-        """
-        Decode an encoded DNA sequence.
-
-        Args:
-            length (int): Sequence length
-            encoded_bytes (bytes): Encoded bytes of the DNA sequence.
-            encoding_type (Encoding): Encoding type.
-
-        Returns:
-            str: Decoded DNA sequence.
-        """
-        # Convert the byte array back to a binary string
-        padding_length = (8 - ((length * encoding_type) % 8)) % 8
-        binary_string = "".join(format(byte, "08b") for byte in encoded_bytes)
-
-        # Remove the padding bits
-        binary_string = binary_string[padding_length:]
-
-        # Map the binary strings back to the corresponding nucleotide
-        try:
-            return "".join(
-                DECODE_MAPPING[encoding_type][binary_string[i : i + encoding_type]]
-                for i in range(0, len(binary_string), encoding_type)
-            )
-        except KeyError as exc:
-            raise ValueError(f"Invalid bytes in the encoded sequence") from exc
-
     @classmethod
     def from_sequence(
         cls,
@@ -179,6 +84,96 @@ class DNASequence:
             encoded_quality=encoded_quality,
             header=header,
         )
+
+    @staticmethod
+    def determine_encoding_type(bases: set) -> Encoding:
+        """
+        Determine the encoding type based on the given DNA sequence.
+
+        Args:
+            sequence (str): The DNA sequence.
+
+        Returns:
+            Encoding: The encoding type (bits to be used per nucleotide)
+        """
+        encoding_type = (
+            Encoding.BIT4_FULL_IUPAC
+            if bases.intersection(DEGENERATE_BASES)
+            else (
+                Encoding.BIT3_Ns_and_GAPs
+                if bases.intersection(NS_AND_GAPS)
+                else Encoding.BIT2_ATCG
+            )
+        )
+        if invalid_bases := bases.difference(
+            ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]
+        ):
+            raise ValueError(f"Invalid bases in the sequence: {list(invalid_bases)}")
+        return encoding_type
+
+    @staticmethod
+    def encode_sequence(sequence: str) -> EncodedSequence:
+        """
+        Encode a DNA sequence and return the sequence length, encoded bytes, and encoding type.
+
+        Args:
+            sequence (str): The DNA sequence to encode.
+
+        Returns:
+            tuple: Sequence length, Encoded bytes, and encoding type.
+        """
+        sequence = sequence.upper()
+
+        # Determine the encoding type based on the sequence content
+        encoding_type = DNASequence.determine_encoding_type(set(sequence))
+
+        # Determine length and required padding
+        length = len(sequence)
+        padding_length = (8 - ((length * encoding_type) % 8)) % 8
+
+        # Create a binary string based on the mapping
+        binary_string = "0" * padding_length
+        for nucleotide in sequence:
+            binary_string += ENCODE_MAPPING[encoding_type][nucleotide]
+
+        # Convert the binary string to bytes
+        encoded_bytes = int(binary_string, 2).to_bytes(
+            length=((len(binary_string) + 7) // 8), byteorder="big", signed=False
+        )
+        # encoded_bytes = np.packbits(np.frombuffer(binary_string.encode('utf-8'), dtype=np.uint8) - ord('0')).tobytes()
+
+        return EncodedSequence(length, encoded_bytes, encoding_type)
+
+    @staticmethod
+    def decode_sequence(
+        length: int, encoded_bytes: bytes, encoding_type: Encoding
+    ) -> str:
+        """
+        Decode an encoded DNA sequence.
+
+        Args:
+            length (int): Sequence length
+            encoded_bytes (bytes): Encoded bytes of the DNA sequence.
+            encoding_type (Encoding): Encoding type.
+
+        Returns:
+            str: Decoded DNA sequence.
+        """
+        # Convert the byte array back to a binary string
+        padding_length = (8 - ((length * encoding_type) % 8)) % 8
+        binary_string = "".join(format(byte, "08b") for byte in encoded_bytes)
+
+        # Remove the padding bits
+        binary_string = binary_string[padding_length:]
+
+        # Map the binary strings back to the corresponding nucleotide
+        try:
+            return "".join(
+                DECODE_MAPPING[encoding_type][binary_string[i : i + encoding_type]]
+                for i in range(0, len(binary_string), encoding_type)
+            )
+        except KeyError as exc:
+            raise ValueError(f"Invalid bytes in the encoded sequence") from exc
 
     @staticmethod
     def encode_quality(quality_score_str: str, ascii_base: int = 33) -> EncodedQuality:
@@ -249,9 +244,9 @@ class DNASequence:
         # Iterate through the rest of the bytes in encoded bytes
         for i in range(0, len(encoded_quality.encoded_quality), 2):
             count = encoded_quality.encoded_quality[i]
-            current_score = encoded_quality.encoded_quality[i + 1]
+            score = encoded_quality.encoded_quality[i + 1]
             for _ in range(count):
-                yield current_score + encoded_quality.minimum_quality
+                yield score + encoded_quality.minimum_quality
 
     @staticmethod
     def decode_quality(encoded_quality: EncodedQuality, ascii_base: int = 33) -> str:
@@ -359,20 +354,3 @@ class DNASequence:
             + "\n+\n"
             + quality
         )
-
-
-# Example usage:
-# dna_sequence = "ATCGGCTARYMKSWHBVD-ATC"
-# phred_scores = "!FG#$%&'()*+,-./012345"
-# print(f"Encoding {dna_sequence}\t{phred_scores}")
-# encoded_dna_with_quality = DNASequence.from_sequence(dna_sequence, phred_scores)
-# print("Encoded sequence:", encoded_dna_with_quality.encoded_sequence)
-# print("Quality scores:", encoded_dna_with_quality.quality_scores)
-# print(f"Decoded DNA sequence:\n{encoded_dna_with_quality.fastq}")
-
-# print("\n")
-# dna_sequence_standard = "ATCGGCTA"
-# encoded_dna_standard = DNASequence.from_sequence(dna_sequence_standard)
-# print("Encoded sequence:", encoded_dna_standard.encoded_sequence)
-
-# print(f"Decoded DNA sequence:\n{encoded_dna_standard.fasta}")
