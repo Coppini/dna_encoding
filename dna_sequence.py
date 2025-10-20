@@ -1,13 +1,17 @@
+#!/usr/bin/env python3
+
 from dataclasses import dataclass
 from math import ceil, sqrt
 from typing import Iterable, NamedTuple, Optional
 
+from bases import (
+    DEGENERATE_BASES,
+    NS_AND_GAPS,
+)
 from code_mapping import (
     DECODE_MAPPING,
-    DEGENERATE_BASES,
     ENCODE_MAPPING,
     ENCODING_TO_BASES,
-    NS_AND_GAPS,
     Encoding,
 )
 
@@ -238,7 +242,7 @@ class DNASequence:
         # bitsize = encoded_quality.encoded_quality[0]
 
         # Initialize variables for tracking current score and count
-        current_score = None
+        score = None
         count = 0
 
         # Iterate through the rest of the bytes in encoded bytes

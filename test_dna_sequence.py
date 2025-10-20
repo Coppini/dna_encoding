@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import random
 import string
 
@@ -42,6 +44,7 @@ def test_encode_decode_random_fasta(encoding_type: Encoding, header: bool):
     length = random.randint(10, 100)
     available_bases = sorted(ENCODING_TO_BASES[encoding_type])
     dna_sequence = "".join(random.choice(available_bases) for _ in range(length))
+    expected_dna_sequence = dna_sequence.replace(".", "-")
     seq_header = random.choice(string.ascii_letters) if header else None
     quality = None
 
@@ -52,7 +55,7 @@ def test_encode_decode_random_fasta(encoding_type: Encoding, header: bool):
 
     # Assert
     assert encoded_dna.encoded_sequence.encoding_type == encoding_type
-    assert encoded_dna.sequence == dna_sequence
+    assert encoded_dna.sequence == expected_dna_sequence
     assert encoded_dna.quality == quality
     # assert average_quality is float("nan")
     assert isinstance(encoded_dna.average_quality, float)
@@ -62,7 +65,7 @@ def test_encode_decode_random_fasta(encoding_type: Encoding, header: bool):
         assert fasta_header == f">{seq_header}"
     else:
         assert fasta_header.startswith(">")
-    assert fasta_sequence == dna_sequence
+    assert fasta_sequence == expected_dna_sequence
     with pytest.raises(ValueError):
         encoded_dna.fastq
 
@@ -81,6 +84,7 @@ def test_encode_decode_random_fastq(
     length = random.randint(100, 1000)
     available_bases = sorted(ENCODING_TO_BASES[encoding_type])
     dna_sequence = "".join(random.choice(available_bases) for _ in range(length))
+    expected_dna_sequence = dna_sequence.replace(".", "-")
     min_quality = min([quality1, quality2])
     max_quality = max([quality1, quality2])
     seq_header = random.choice(string.ascii_letters) if header else None
@@ -103,15 +107,15 @@ def test_encode_decode_random_fastq(
 
     # Assert
     assert encoded_dna.encoded_sequence.encoding_type == encoding_type
-    assert encoded_dna.sequence == dna_sequence
+    assert encoded_dna.sequence == expected_dna_sequence
     assert encoded_dna.quality == quality
     assert encoded_dna.average_quality == average_quality
     fasta_header, fasta_sequence = encoded_dna.fasta.split("\n")
-    assert fasta_sequence == dna_sequence
+    assert fasta_sequence == expected_dna_sequence
     fastq_header, fastq_sequence, plus_signal, fastq_quality = encoded_dna.fastq.split(
         "\n"
     )
-    assert fastq_sequence == dna_sequence
+    assert fastq_sequence == expected_dna_sequence
     assert plus_signal == "+"
     assert fastq_quality == quality
     if header:
