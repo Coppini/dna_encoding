@@ -28,13 +28,7 @@ EVEN_TAG_AND_PADDING = "11110000"
 
 def encode_4bit_sequence(sequence: str) -> bytes:
     """
-    Encode a DNA sequence and return the sequence length, encoded bytes, and encoding type.
-
-    Args:
-        sequence (str): The DNA sequence to encode.
-
-    Returns:
-        tuple: Sequence length, Encoded bytes, and encoding type.
+    Encode a DNA sequence and return the encoded bytes
     """
     sequence = sequence.upper().replace("\n", "").replace("\r", "")
     # Determine length and required padding
