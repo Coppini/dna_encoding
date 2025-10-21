@@ -2,8 +2,19 @@
 
 from dataclasses import dataclass
 
-from code_mapping import DECODE_MAPPING, ENCODE_MAPPING, ENCODING_TO_BASES, Encoding, STOP_3BIT
-from generic_encoding import EncodedQuality, EncodedSequence, bits_to_bytes, bytes_to_bits
+from code_mapping import (
+    DECODE_MAPPING,
+    ENCODE_MAPPING,
+    ENCODING_TO_BASES,
+    STOP_3BIT,
+    Encoding,
+)
+from generic_encoding import (
+    EncodedQuality,
+    EncodedSequence,
+    bits_to_bytes,
+    bytes_to_bits,
+)
 
 ENCODING = Encoding.BIT3_Ns_and_GAPs
 TAG_BIT3 = "10"
@@ -20,6 +31,7 @@ TAG_BIT3 = "10"
 ## PYRIMIDINE=CT / PURINE=AG
 ##
 
+
 def encode_3bit_sequence(sequence: str) -> bytes:
     sequence = sequence.upper().replace("\n", "").replace("\r", "")
     if invalid_bases := set(sequence).difference(ENCODING_TO_BASES[ENCODING]):
@@ -29,17 +41,14 @@ def encode_3bit_sequence(sequence: str) -> bytes:
     data_bits = "".join(mapping[base] for base in sequence)
 
     bitstring = TAG_BIT3 + data_bits
-    if (remainders := (len(bitstring) % 8)):
-        to_pad = (8 - remainders)
-        bitstring += (
-            "0" * to_pad
-            if to_pad < 3 
-            else (STOP_3BIT + ("0" * (to_pad - 3)))
-        )
+    if remainders := (len(bitstring) % 8):
+        to_pad = 8 - remainders
+        bitstring += "0" * to_pad if to_pad < 3 else (STOP_3BIT + ("0" * (to_pad - 3)))
     assert len(bitstring) % 8 == 0
 
     # Byte-align with trailing zeros (decoder ignores after STOP)
     return bits_to_bytes(bitstring)
+
 
 def decode_3bit_sequence(encoded_bytes: bytes) -> str:
     bits = bytes_to_bits(encoded_bytes)
@@ -52,11 +61,16 @@ def decode_3bit_sequence(encoded_bytes: bytes) -> str:
 
     # Consume 3-bit symbols until done or STOP; ignore whatever remains after STOP
     for j in range(2, len(bits), 3):
-        chunk = bits[j:j+3]
+        chunk = bits[j : j + 3]
         try:
             base = rev[chunk]
         except KeyError:
-            if chunk == STOP_3BIT or len(chunk) < 3:
+            if (
+                chunk == STOP_3BIT
+                and not bits[j + 3 :].strip("0")
+                or len(chunk) < 3
+                and not bits[j:].strip("0")
+            ):
                 break
             raise ValueError(f"Invalid 3-bit symbol {chunk} in stream")
         decoded_bases.append(base)
