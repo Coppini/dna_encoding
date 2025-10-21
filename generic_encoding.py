@@ -4,16 +4,36 @@ from dataclasses import dataclass
 from math import ceil, sqrt
 from typing import Iterable, NamedTuple
 
+class EncodingError(ValueError):
+    def __init__(self, message="Encoding error: header or bitstring is improperly formatted.", encoding: int | None = None):
+        if encoding is not None:
+            message = f"BIT{encoding} encoder: {message}"
+        super().__init__(message)
 
-def bits_to_bytes(bitstring: str) -> bytes:
-    # Pad to a whole number of bytes to avoid OverflowError
-    if remainders := len(bitstring) % 8:
-        bitstring += "0" * (8 - remainders)
+class DecodingError(EncodingError):
+    def __init__(self, message="Decoding error: bytes, header or bitstring is improperly formatted.", encoding: int | None = None):
+        if encoding is not None:
+            message = f"BIT{encoding} decoder error: {message}"
+        super().__init__(message)
+
+def bits_to_bytes(bitstring: str, pad: bool = False) -> bytes:
+    if (remainders := len(bitstring) % 8):
+        padding = (8 - remainders)
+        if not pad:
+            raise EncodingError(
+                "bitstring length is not divisible by 8 and can't be properly formatted into bytes"
+                f"{len(bitstring)} % 8 = {remainders} (would require padding with {padding} bits)."
+            )
+        # Pad to a whole number of bytes to avoid OverflowError
+        bitstring += "0" * padding
     return int(bitstring, 2).to_bytes(len(bitstring) // 8, "big", signed=False)
 
 
 def bytes_to_bits(b: bytes) -> str:
-    return "".join(f"{byte:08b}" for byte in b)
+    try:
+        return "".join(f"{byte:08b}" for byte in b)
+    except Exception as e:
+        raise DecodingError("Unable to convert bytes to bits") from e
 
 
 class EncodedQuality(NamedTuple):

@@ -6,7 +6,7 @@ from code_mapping import ENCODING_TO_BASES, Encoding
 from encoding_2bit import TAG_BIT2, decode_2bit_sequence, encode_2bit_sequence
 from encoding_3bit import TAG_BIT3, decode_3bit_sequence, encode_3bit_sequence
 from encoding_4bit import TAG_BIT4, decode_4bit_sequence, encode_4bit_sequence
-from generic_encoding import EncodedQuality, EncodedSequence, encode_quality
+from generic_encoding import EncodedQuality, EncodedSequence, encode_quality, EncodingError, DecodingError
 
 TAG_TO_ENCODING = {
     TAG_BIT2: Encoding.BIT2_ATCG,
@@ -38,7 +38,7 @@ def choose_minimal_encoding(sequence: str) -> Encoding:
     if invalid_bases := set(sequence).difference(
         ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]
     ):
-        raise ValueError(f"Unsupported symbols for BIT4: {list(invalid_bases)}")
+        raise EncodingError(f"Unsupported symbols for BIT4: {list(invalid_bases)}", encoding=Encoding.BIT4_FULL_IUPAC)
     return Encoding.BIT4_FULL_IUPAC
 
 
@@ -47,7 +47,7 @@ def detect_tag(encoded_bytes: bytes) -> Encoding:
     try:
         return TAG_TO_ENCODING[tag]
     except KeyError:
-        raise ValueError(f"Unknown or unsupported tag: {tag}")
+        raise DecodingError(f"Unknown or unsupported tag: {tag}")
 
 
 def encode_Nbit_sequence(
@@ -62,7 +62,7 @@ def encode_Nbit_sequence(
         return encoding, encode_3bit_sequence(sequence)
     if encoding == Encoding.BIT4_FULL_IUPAC:
         return encoding, encode_4bit_sequence(sequence)
-    raise ValueError(f"Unsupported Encoding type: {encoding}")
+    raise EncodingError(f"Unsupported Encoding type: {encoding}")
 
 
 def decode_Nbit_sequence(
@@ -79,7 +79,7 @@ def decode_Nbit_sequence(
         return encoding, decode_3bit_sequence(encoded_bytes)
     if encoding == Encoding.BIT4_FULL_IUPAC:
         return encoding, decode_4bit_sequence(encoded_bytes)
-    raise ValueError(f"Invalid encoding: {encoding}")
+    raise DecodingError(f"Invalid encoding: {encoding}")
 
 
 @dataclass

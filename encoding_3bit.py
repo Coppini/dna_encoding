@@ -14,6 +14,8 @@ from generic_encoding import (
     EncodedSequence,
     bits_to_bytes,
     bytes_to_bits,
+    EncodingError,
+    DecodingError
 )
 
 ENCODING = Encoding.BIT3_Ns_and_GAPs
@@ -33,9 +35,16 @@ TAG_BIT3 = "10"
 
 
 def encode_3bit_sequence(sequence: str) -> bytes:
+    """
+    Layout (BIT3):
+      [2b TAG=10][3-bit symbols...][0..2 pad bits of 0 or STOP+0..4 bits of 0]
+    If needed, the stream is byte-aligned by adding trailing 1 or 2 zeros (which
+    are ignored by the decoder as it does not add to a 3bit code), or a STOP symbol
+    and then enough zeros (0..4) to reach the next byte boundary.
+    """
     sequence = sequence.upper().replace("\n", "").replace("\r", "")
     if invalid_bases := set(sequence).difference(ENCODING_TO_BASES[ENCODING]):
-        raise ValueError(f"Unsupported symbols for BIT3: {list(invalid_bases)}")
+        raise EncodingError(f"Unsupported symbols in sequence ({sorted(invalid_bases)})", encoding=ENCODING.value)
 
     mapping = ENCODE_MAPPING[ENCODING]
     data_bits = "".join(mapping[base] for base in sequence)
@@ -43,10 +52,14 @@ def encode_3bit_sequence(sequence: str) -> bytes:
     bitstring = TAG_BIT3 + data_bits
     if remainders := (len(bitstring) % 8):
         to_pad = 8 - remainders
-        bitstring += "0" * to_pad if to_pad < 3 else (STOP_3BIT + ("0" * (to_pad - 3)))
-    assert len(bitstring) % 8 == 0
-
-    # Byte-align with trailing zeros (decoder ignores after STOP)
+        if to_pad < 3:
+            # Just add zeros to reach byte alignment, decoder ignores trailing zeros
+            # that do not add up to a full 3-bit symbol
+            bitstring += "0" * to_pad
+        else:
+            # If there are 3 or more bits to pad, use STOP symbol + zeros
+            pad_0s = to_pad - len(STOP_3BIT)
+            bitstring += (STOP_3BIT + ("0" * pad_0s))
     return bits_to_bytes(bitstring)
 
 
@@ -54,7 +67,9 @@ def decode_3bit_sequence(encoded_bytes: bytes) -> str:
     bits = bytes_to_bits(encoded_bytes)
 
     if bits[:2] != TAG_BIT3:
-        raise ValueError("BIT3 decoder: wrong tag (expected '10').")
+        raise DecodingError(
+            f"Wrong tag in header (found {bits[:2]}, expected {TAG_BIT3})", encoding=ENCODING.value
+        )
 
     rev = DECODE_MAPPING[ENCODING]
     decoded_bases = list()
@@ -65,11 +80,21 @@ def decode_3bit_sequence(encoded_bytes: bytes) -> str:
         try:
             base = rev[chunk]
         except KeyError:
-            if (chunk == STOP_3BIT and not bits[j + 3 :].strip("0")) or (
-                len(chunk) < 3 and not bits[j:].strip("0")
-            ):
-                break
-            raise ValueError(f"Invalid 3-bit symbol {chunk} in stream")
+            if chunk == STOP_3BIT:
+                if (padding := bits[j + 3 :]).strip("0"):
+                    raise DecodingError(
+                        ("Non-zero padding bits found after STOP symbol"
+                        f" (expected all '0's, found '{padding}')."), encoding=ENCODING.value
+                    )
+            elif len(chunk) < 3:
+                if (padding := bits[j:]).strip("0"):
+                    raise DecodingError(
+                        ("Non-zero padding bits found at end of stream"
+                        f" (expected all '0's, found '{padding}')."), encoding=ENCODING.value
+                    )
+            else:
+                raise EncodingError(f"Invalid 3-bit symbol {chunk} in stream", encoding=ENCODING.value)
+            break
         decoded_bases.append(base)
     return "".join(decoded_bases)
 

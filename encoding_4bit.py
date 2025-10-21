@@ -8,13 +8,15 @@ from generic_encoding import (
     EncodedSequence,
     bits_to_bytes,
     bytes_to_bits,
+    EncodingError,
+    DecodingError
 )
 
 ENCODING = Encoding.BIT4_FULL_IUPAC
 TAG_BIT4 = "11"
-ODD_TAG = "1100"
-EVEN_TAG = "1111"
-EVEN_TAG_AND_PADDING = "11110000"
+ODD_TAG = f"{TAG_BIT4}00"
+EVEN_TAG = f"{TAG_BIT4}11"
+EVEN_TAG_AND_PADDING = f"{EVEN_TAG}0000"
 
 ##
 ## From LEFT to RIGHT
@@ -34,47 +36,44 @@ EVEN_TAG_AND_PADDING = "11110000"
 
 def encode_4bit_sequence(sequence: str) -> bytes:
     """
-    Encode a DNA sequence and return the encoded bytes
+    Layout (BIT4):
+      [2b TAG=11][2-bit or 6-bit padding][4-bit symbols...]
+      Padding will be 2-bit if sequence is odd-length, 6-bit if even-length.
     """
     sequence = sequence.upper().replace("\n", "").replace("\r", "")
     # Determine length and required padding
     if invalid_bases := set(sequence).difference(ENCODING_TO_BASES[ENCODING]):
-        raise ValueError(f"Unsupported symbols for BIT4: {list(invalid_bases)}")
+        raise EncodingError(f"Unsupported symbols in sequence ({sorted(invalid_bases)})", encoding=ENCODING.value)
 
     mapping = ENCODE_MAPPING[ENCODING]
 
     data_bits = "".join(mapping[base] for base in sequence)
-    odd = len(sequence) % 2
-    header = ODD_TAG if odd else EVEN_TAG_AND_PADDING
+    header = ODD_TAG if (len(sequence) % 2) else EVEN_TAG_AND_PADDING
     bitstring = header + data_bits
 
-    # Always byte-aligned now
-    assert len(bitstring) % 8 == 0
     return bits_to_bytes(bitstring)
 
 
 def decode_4bit_sequence(encoded_bytes: bytes) -> str:
-    """
-    Decode an encoded DNA sequence.
-
-    Args:
-        length (int): Sequence length
-        encoded_bytes (bytes): Encoded bytes of the DNA sequence.
-        encoding_type (Encoding): Encoding type.
-
-    Returns:
-        str: Decoded DNA sequence.
-    """
-    # Convert the byte array back to a binary string
     bits = bytes_to_bits(encoded_bytes)
 
     # Checks if odd or even to see how much header to skip
-    bits_to_skip = 4 if (bits[:4] == ODD_TAG) else 8
+    if (bits[:4] == ODD_TAG):
+        bits_to_skip = 4  # 2b TAG + 2b PAD
+    elif (bits[:8] == EVEN_TAG_AND_PADDING):
+        bits_to_skip = 8  # 2b TAG + 6b PAD
+    else:
+        raise DecodingError(
+            (f"Wrong tag in header (found {bits[:4]} or {bits[:8]},"
+            f" expected {ODD_TAG} or {EVEN_TAG_AND_PADDING})"), encoding=ENCODING.value
+        )
 
-    rev = DECODE_MAPPING[ENCODING]  # maps '000'.. to bases
-    seq_bits = bits[bits_to_skip:]
-    assert len(seq_bits) % 4 == 0, "corrupt BIT4 alignment"
-
+    rev = DECODE_MAPPING[ENCODING]
+    if len(seq_bits := bits[bits_to_skip:]) % 4 > 0:
+        raise DecodingError(
+            ("Bitstring length after header is not divisible by 4"
+            f" (found length {len(seq_bits)} % 4 = {len(seq_bits) % 4})."), encoding=ENCODING.value
+        )
     return "".join(rev[seq_bits[j : j + 4]] for j in range(0, len(seq_bits), 4))
 
 
