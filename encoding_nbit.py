@@ -70,10 +70,8 @@ def encode_Nbit_sequence(sequence: str, encoding: Encoding | None = None) -> Enc
 
 def decode_Nbit_sequence(encoded_bytes: bytes, encoding: Encoding | None = None) -> EncodingAndSequence:
     """
-    Auto-detect the encoding by roundtripping with each decoder.
-    We attempt decoders in order 2-bit, 3-bit, then 4-bit; for each,
-    we decode -> re-encode with the same codec -> compare bytes.
-    The first exact roundtrip match wins.
+    Auto-detect the encoding checking the TAG at the first two bits,
+    then decode the sequence accordingly.
     """
     encoding = encoding or detect_tag(encoded_bytes)
     if encoding == Encoding.BIT2_ATCG:
