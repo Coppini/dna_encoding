@@ -5,7 +5,9 @@ import string
 
 import pytest
 
-from encoding_4bit import ENCODING_TO_BASES, Encoded4bitSequence, Encoding
+from encoding_4bit import ENCODING_TO_BASES, Encoded4bitSequence, Encoding, decode_4bit_sequence
+
+from generic_encoding import DecodingError, EncodingError, bits_to_bytes
 
 
 @pytest.mark.parametrize(
@@ -127,6 +129,71 @@ def test_encode_decode_random_fastq(
     else:
         assert fasta_header.startswith(">")
         assert fastq_header.startswith("@")
+
+
+def test_decode_invalid_tag():
+    # Arrange: create an invalid tag (should be '01')
+    invalid_bytes = bytes([0b10000000])  # '10' as tag (BIT3)
+    # Act / Assert
+    with pytest.raises(DecodingError):
+        decode_4bit_sequence(invalid_bytes)
+
+def test_decode_nonzero_padding():
+    # Arrange: valid tag, but padding bits are not zero
+    # Header: '01' + '01' (pad=2), padding bits: '11' (should be '00')
+    # Sequence bits: '00' (A)
+    bits = '01' + '01' + '11' + '00'
+    encoded = bits_to_bytes(bits)
+    with pytest.raises(DecodingError):
+        decode_4bit_sequence(encoded)
+
+def test_encode_empty_sequence():
+    # Act / Assert
+    encoded = Encoded4bitSequence.from_sequence("")
+    assert encoded.sequence == ""
+    assert encoded.quality is None
+    assert isinstance(encoded.average_quality, float)
+    assert not any([encoded.average_quality <= 0, encoded.average_quality >= 0])
+
+def test_encode_decode_long_sequence():
+    seq = "ATCGN-.VBKWS" * 1000
+    expected_seq = seq.replace(".", "-")
+    encoded = Encoded4bitSequence.from_sequence(seq)
+    assert encoded.sequence == expected_seq
+    decoded = Encoded4bitSequence.decode_sequence(encoded.encoded_sequence)
+    assert decoded == expected_seq
+
+def test_encode_decode_lowercase():
+    seq = "atcgn.-srb"
+    expected_seq = seq.replace(".", "-").upper()
+    encoded = Encoded4bitSequence.from_sequence(seq)
+    assert encoded.sequence == expected_seq
+    decoded = Encoded4bitSequence.decode_sequence(encoded.encoded_sequence)
+    assert decoded == expected_seq
+
+def test_encode_decode_with_header_and_quality():
+    seq = "ATCGN.-YWKDHV"
+    expected_seq = seq.replace(".", "-")
+    quality = "!I#$III!!!!!!"
+    header = "testheader"
+    encoded = Encoded4bitSequence.from_sequence(seq, quality_score_str=quality, header=header)
+    assert encoded.sequence == expected_seq
+    assert encoded.quality == quality
+    assert encoded.header == header
+    assert encoded.fasta.startswith(f">{header}")
+    assert encoded.fastq.startswith(f"@{header}")
+
+def test_encode_quality_score_invalid_characters():
+    seq = "ATCGN.-VBDHK"
+    quality = " IIIIII"  # Not valid ASCII Phred+33
+    with pytest.raises(ValueError):
+        Encoded4bitSequence.from_sequence(seq, quality_score_str=quality)
+
+def test_encode_quality_score_length_mismatch_empty_quality():
+    seq = "ATCGN.-RW"
+    quality = ""
+    with pytest.raises(ValueError):
+        Encoded4bitSequence.from_sequence(seq, quality_score_str=quality)
 
 
 if __name__ == "__main__":
