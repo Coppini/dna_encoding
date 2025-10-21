@@ -3,7 +3,12 @@
 from dataclasses import dataclass
 
 from code_mapping import DECODE_MAPPING, ENCODE_MAPPING, ENCODING_TO_BASES, Encoding
-from generic_encoding import EncodedQuality, EncodedSequence, bits_to_bytes, bytes_to_bits
+from generic_encoding import (
+    EncodedQuality,
+    EncodedSequence,
+    bits_to_bytes,
+    bytes_to_bits,
+)
 
 ENCODING = Encoding.BIT2_ATCG
 TAG_BIT2 = "01"
@@ -16,6 +21,7 @@ TAG_BIT2 = "01"
 ## Second bit: PYRIMIDINE (PYRIMIDINE=1; PURINE=0)
 ## PYRIMIDINE=CT / PURINE=AG
 ##
+
 
 def encode_2bit_sequence(sequence: str) -> bytes:
     """
@@ -31,8 +37,8 @@ def encode_2bit_sequence(sequence: str) -> bytes:
     data_bits = "".join(mapping[base] for base in sequence)  # 2-bit symbols
 
     # Compute how many *2-bit pairs* needed to reach next byte boundary
-    length_before_padding = 4 + len(data_bits) # 2 from TAG + 2 from PAD_LEN info
-    remainders = (length_before_padding % 8)
+    length_before_padding = 4 + len(data_bits)  # 2 from TAG + 2 from PAD_LEN info
+    remainders = length_before_padding % 8
     pad_bits = (8 - remainders) if remainders else 0
     pad_len = pad_bits // 2
     header = TAG_BIT2 + format(pad_len, "02b")
@@ -49,10 +55,9 @@ def decode_2bit_sequence(encoded_bytes: bytes) -> str:
     pad_len = int(bits[2:4], 2)
     mapping = DECODE_MAPPING[ENCODING]
     decoded_bases = list()
-    for i in range(4 + (pad_len*2), len(bits), 2):
-        decoded_bases.append(mapping[bits[i:i+2]])
+    for i in range(4 + (pad_len * 2), len(bits), 2):
+        decoded_bases.append(mapping[bits[i : i + 2]])
     return "".join(decoded_bases)
-
 
 
 @dataclass

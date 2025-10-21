@@ -3,7 +3,12 @@
 from dataclasses import dataclass
 
 from code_mapping import DECODE_MAPPING, ENCODE_MAPPING, ENCODING_TO_BASES, Encoding
-from generic_encoding import EncodedQuality, EncodedSequence, bits_to_bytes, bytes_to_bits
+from generic_encoding import (
+    EncodedQuality,
+    EncodedSequence,
+    bits_to_bytes,
+    bytes_to_bits,
+)
 
 ENCODING = Encoding.BIT4_FULL_IUPAC
 TAG_BIT4 = "11"
@@ -25,6 +30,7 @@ EVEN_TAG_AND_PADDING = "11110000"
 ## Fourth bit: T included in base (included=1; not-included=0)
 ## T_INCLUDED=TNYWKBDH / T_NOT_INCLUDED=ACG-.RSMV
 ##
+
 
 def encode_4bit_sequence(sequence: str) -> bytes:
     """

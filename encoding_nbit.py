@@ -2,51 +2,45 @@
 from dataclasses import dataclass
 from typing import Callable, NamedTuple
 
-from generic_encoding import EncodedSequence, EncodedQuality, encode_quality
 from code_mapping import ENCODING_TO_BASES, Encoding
-
-from encoding_2bit import (
-    encode_2bit_sequence,
-    decode_2bit_sequence,
-    TAG_BIT2
-)
-from encoding_3bit import (
-    encode_3bit_sequence,
-    decode_3bit_sequence,
-    TAG_BIT3
-)
-from encoding_4bit import (
-    encode_4bit_sequence,
-    decode_4bit_sequence,
-    TAG_BIT4
-)
+from encoding_2bit import TAG_BIT2, decode_2bit_sequence, encode_2bit_sequence
+from encoding_3bit import TAG_BIT3, decode_3bit_sequence, encode_3bit_sequence
+from encoding_4bit import TAG_BIT4, decode_4bit_sequence, encode_4bit_sequence
+from generic_encoding import EncodedQuality, EncodedSequence, encode_quality
 
 TAG_TO_ENCODING = {
     TAG_BIT2: Encoding.BIT2_ATCG,
     TAG_BIT3: Encoding.BIT3_Ns_and_GAPs,
-    TAG_BIT4: Encoding.BIT4_FULL_IUPAC
+    TAG_BIT4: Encoding.BIT4_FULL_IUPAC,
 }
+
 
 def can_encode_with(encoding: Encoding, sequence: str) -> bool:
     ENCODING_TO_BASES[encoding]
     return set(sequence).issubset(ENCODING_TO_BASES[encoding])
 
+
 class EncodingAndEncodedBytes(NamedTuple):
     encoding: Encoding
     encoded_bytes: bytes
 
+
 class EncodingAndSequence(NamedTuple):
     encoding: Encoding
     sequence: str
+
 
 def choose_minimal_encoding(sequence: str) -> Encoding:
     if can_encode_with(Encoding.BIT2_ATCG, sequence):
         return Encoding.BIT2_ATCG
     if can_encode_with(Encoding.BIT3_Ns_and_GAPs, sequence):
         return Encoding.BIT3_Ns_and_GAPs
-    if invalid_bases := set(sequence).difference(ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]):
+    if invalid_bases := set(sequence).difference(
+        ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]
+    ):
         raise ValueError(f"Unsupported symbols for BIT4: {list(invalid_bases)}")
     return Encoding.BIT4_FULL_IUPAC
+
 
 def detect_tag(encoded_bytes: bytes) -> Encoding:
     tag = f"{encoded_bytes[0]:08b}"[:2]
@@ -55,7 +49,10 @@ def detect_tag(encoded_bytes: bytes) -> Encoding:
     except KeyError:
         raise ValueError(f"Unknown or unsupported tag: {tag}")
 
-def encode_Nbit_sequence(sequence: str, encoding: Encoding | None = None) -> EncodingAndEncodedBytes:
+
+def encode_Nbit_sequence(
+    sequence: str, encoding: Encoding | None = None
+) -> EncodingAndEncodedBytes:
     """Choose the smallest valid encoding that supports `sequence` and encode it."""
     sequence = sequence.upper().replace("\n", "").replace("\r", "")
     encoding = encoding or choose_minimal_encoding(sequence)
@@ -68,7 +65,9 @@ def encode_Nbit_sequence(sequence: str, encoding: Encoding | None = None) -> Enc
     raise ValueError(f"Unsupported Encoding type: {encoding}")
 
 
-def decode_Nbit_sequence(encoded_bytes: bytes, encoding: Encoding | None = None) -> EncodingAndSequence:
+def decode_Nbit_sequence(
+    encoded_bytes: bytes, encoding: Encoding | None = None
+) -> EncodingAndSequence:
     """
     Auto-detect the encoding checking the TAG at the first two bits,
     then decode the sequence accordingly.
@@ -81,7 +80,6 @@ def decode_Nbit_sequence(encoded_bytes: bytes, encoding: Encoding | None = None)
     if encoding == Encoding.BIT4_FULL_IUPAC:
         return encoding, decode_4bit_sequence(encoded_bytes)
     raise ValueError(f"Invalid encoding: {encoding}")
-    
 
 
 @dataclass
@@ -90,6 +88,7 @@ class EncodedNbitSequence(EncodedSequence):
     A sequence container that uses the minimal N-bit encoding automatically
     and auto-detects on decode.
     """
+
     encoded_sequence: bytes
     encoded_quality: EncodedQuality | None = None
     encoding: Encoding | None = None
@@ -139,21 +138,29 @@ class EncodedNbitSequence(EncodedSequence):
         )
 
     def encode_self(self, sequence: str, encoding: Encoding | None = None) -> bytes:
-        encoding, encoded_bytes = encode_Nbit_sequence(sequence, encoding=encoding or self.encoding)
+        encoding, encoded_bytes = encode_Nbit_sequence(
+            sequence, encoding=encoding or self.encoding
+        )
         self.encoding = encoding
         return encoded_bytes
-    
+
     @staticmethod
     def encode_sequence(sequence: str, encoding: Encoding | None = None) -> bytes:
         encoding, encoded_bytes = encode_Nbit_sequence(sequence, encoding=encoding)
         return encoded_bytes
 
-    def decode_self(self, encoded_sequence: bytes, encoding: Encoding | None = None) -> str:
-        encoding, sequence = decode_Nbit_sequence(encoded_sequence, encoding=encoding or self.encoding)
+    def decode_self(
+        self, encoded_sequence: bytes, encoding: Encoding | None = None
+    ) -> str:
+        encoding, sequence = decode_Nbit_sequence(
+            encoded_sequence, encoding=encoding or self.encoding
+        )
         self.encoding = encoding
         return sequence
-    
+
     @staticmethod
-    def decode_sequence(encoded_sequence: bytes, encoding: Encoding | None = None) -> str:
+    def decode_sequence(
+        encoded_sequence: bytes, encoding: Encoding | None = None
+    ) -> str:
         encoding, sequence = decode_Nbit_sequence(encoded_sequence, encoding=encoding)
         return sequence
