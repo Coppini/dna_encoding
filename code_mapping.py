@@ -4,6 +4,7 @@ from enum import IntEnum
 
 import bases
 
+STOP_3BIT = "101"  # reserved sentinel; must be unused by actual bases
 
 class Encoding(IntEnum):
     BIT2_ATCG = 2
@@ -23,7 +24,6 @@ def _encode_base_2bit(base: str) -> int:
     b0 = base in bases.PYRIMIDINE_BASES  # pyrimidine? (C,T) -> 1
     return (b1 << 1) | b0  # A=00, C=01, G=10, T=11
 
-
 def _encode_base_3bit(base: str) -> int:
     # b2 = 1 for N or gap; b2 = 0 for concrete A/C/G/T
     if base in bases.NS_AND_GAPS:
@@ -33,7 +33,6 @@ def _encode_base_3bit(base: str) -> int:
     else:
         b2 = 0
         return (b2 << 2) | _encode_base_2bit(base)  # A=000, C=001, G=010, T=011
-
 
 def _encode_base_4bit(base: str) -> int:
     b0 = "A" in bases.BIT4_BASES[base]
@@ -67,3 +66,4 @@ DECODE_MAPPING = {
     encoding_type: {value: key for key, value in mapping.items() if key != "."}
     for encoding_type, mapping in ENCODE_MAPPING.items()
 }
+assert not any(STOP_3BIT in v.values() for v in DECODE_MAPPING.values())

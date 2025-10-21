@@ -49,8 +49,7 @@ def choose_minimal_encoding(sequence: str) -> Encoding:
     return Encoding.BIT4_FULL_IUPAC
 
 def detect_tag(encoded_bytes: bytes) -> Encoding:
-    bits = f"{encoded_bytes[0]:08b}"
-    tag = bits[:2]
+    tag = f"{encoded_bytes[0]:08b}"[:2]
     try:
         return TAG_TO_ENCODING[tag]
     except KeyError:

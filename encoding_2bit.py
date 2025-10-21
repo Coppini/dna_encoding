@@ -18,51 +18,30 @@ def encode_2bit_sequence(sequence: str) -> bytes:
     if invalid := set(sequence).difference(ENCODING_TO_BASES[ENCODING]):
         raise ValueError(f"Unsupported symbols for BIT2: {sorted(invalid)}")
 
-    enc = ENCODE_MAPPING[ENCODING]
-    data_bits = "".join(enc[base] for base in sequence)  # 2-bit symbols
+    mapping = ENCODE_MAPPING[ENCODING]
+    data_bits = "".join(mapping[base] for base in sequence)  # 2-bit symbols
 
-    n = len(sequence)
-    lead_pairs = (2 - (n % 4)) % 4                     # <-- KEY CHANGE
-    prefix = format(lead_pairs, "02b")
+    # Compute how many *2-bit pairs* needed to reach next byte boundary
+    length_before_padding = 4 + len(data_bits) # 2 from TAG + 2 from PAD_LEN info
+    pad_bits = (8 - length_before_padding % 8) % 8
+    pad_len = pad_bits // 2
+    header = TAG_BIT2 + format(pad_len, "02b")
 
-    bitstream = TAG_BIT2 + prefix + ("0" * (2 * lead_pairs)) + data_bits
-    # now length is guaranteed multiple of 8
-    return bits_to_bytes(bitstream)
+    bitstring = header + ("0" * pad_bits) + data_bits
+    assert len(bitstring) % 8 == 0
+    return bits_to_bytes(bitstring)
 
 
 def decode_2bit_sequence(encoded_bytes: bytes) -> str:
-    """
-    Decode an encoded DNA sequence.
-
-    Args:
-        length (int): Sequence length
-        encoded_bytes (bytes): Encoded bytes of the DNA sequence.
-        encoding_type (Encoding): Encoding type.
-
-    Returns:
-        str: Decoded DNA sequence.
-    """
-    # Convert the byte array back to a binary string
     bits = bytes_to_bits(encoded_bytes)
     if bits[:2] != TAG_BIT2:
-        raise ValueError(f"BIT2 decoder: wrong tag (expected '{TAG_BIT2}').")
-
-    lead_pairs = int(bits[2:4], 2)
-    start = 4 + 2 * lead_pairs
-    payload = bits[start:]
-
-    if len(payload) % 2:
-        raise ValueError("BIT2 payload not aligned to 2-bit symbols")
-
-    dec = DECODE_MAPPING[ENCODING]
-    out = []
-    for i in range(0, len(payload), 2):
-        sym = payload[i:i+2]
-        base = dec.get(sym)
-        if base is None:
-            raise ValueError(f"BIT2: unknown symbol {sym}")
-        out.append(base)
-    return "".join(out)
+        raise ValueError("BIT2 decoder: wrong tag")
+    pad_len = int(bits[2:4], 2)
+    mapping = DECODE_MAPPING[ENCODING]
+    decoded_bases = list()
+    for i in range(4 + (pad_len*2), len(bits), 2):
+        decoded_bases.append(mapping[bits[i:i+2]])
+    return "".join(decoded_bases)
 
 
 

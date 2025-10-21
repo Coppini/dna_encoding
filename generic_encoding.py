@@ -6,8 +6,8 @@ from typing import Iterable, NamedTuple
 
 def bits_to_bytes(bitstring: str) -> bytes:
     # Pad to a whole number of bytes to avoid OverflowError
-    if len(bitstring) % 8:
-        bitstring += "0" * (8 - (len(bitstring) % 8))
+    if (remainders := len(bitstring) % 8):
+        bitstring += "0" * (8 - remainders)
     return int(bitstring, 2).to_bytes(len(bitstring) // 8, "big", signed=False)
 
 def bytes_to_bits(b: bytes) -> str:
