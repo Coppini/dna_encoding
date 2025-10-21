@@ -11,6 +11,21 @@ ODD_TAG = "1100"
 EVEN_TAG = "1111"
 EVEN_TAG_AND_PADDING = "11110000"
 
+##
+## From LEFT to RIGHT
+## First bit (leftmost): A included in base (included=1; not-included=0)
+## A_INCLUDED=ANRWMDHV / A_NOT_INCLUDED=CGT-.YSKB
+##
+## Second bit: C included in base (included=1; not-included=0)
+## C_INCLUDED=CNYSMBHV / C_NOT_INCLUDED=AGT-.RWKD
+##
+## Third bit: G included in base (included=1; not-included=0)
+## G_INCLUDED=GNRSKBDV / G_NOT_INCLUDED=ACT-.YWMH
+##
+## Fourth bit: T included in base (included=1; not-included=0)
+## T_INCLUDED=TNYWKBDH / T_NOT_INCLUDED=ACG-.RSMV
+##
+
 def encode_4bit_sequence(sequence: str) -> bytes:
     """
     Encode a DNA sequence and return the sequence length, encoded bytes, and encoding type.

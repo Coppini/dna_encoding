@@ -8,6 +8,18 @@ from generic_encoding import EncodedQuality, EncodedSequence, bits_to_bytes, byt
 ENCODING = Encoding.BIT3_Ns_and_GAPs
 TAG_BIT3 = "10"
 
+##
+## From LEFT to RIGHT
+## First bit (leftmost): CONCRETE_BASE (CONCRETE_BASE=1; NON_STANDARD=0)
+## CONCRETE_BASE=ACGT / NON_STANDARD=N-.
+##
+## Second bit: KETO (KETO=1; AMINO=0)
+## KETO=GT / AMINO=AC
+##
+## Third bit: PYRIMIDINE (PYRIMIDINE=1; PURINE=0)
+## PYRIMIDINE=CT / PURINE=AG
+##
+
 def encode_3bit_sequence(sequence: str) -> bytes:
     sequence = sequence.upper().replace("\n", "").replace("\r", "")
     if invalid_bases := set(sequence).difference(ENCODING_TO_BASES[ENCODING]):

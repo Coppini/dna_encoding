@@ -8,6 +8,15 @@ from generic_encoding import EncodedQuality, EncodedSequence, bits_to_bytes, byt
 ENCODING = Encoding.BIT2_ATCG
 TAG_BIT2 = "01"
 
+##
+## From LEFT to RIGHT
+## First bit (leftmost): KETO (KETO=1; AMINO=0)
+## KETO=GT / AMINO=AC
+##
+## Second bit: PYRIMIDINE (PYRIMIDINE=1; PURINE=0)
+## PYRIMIDINE=CT / PURINE=AG
+##
+
 def encode_2bit_sequence(sequence: str) -> bytes:
     """
     Layout (BIT2):

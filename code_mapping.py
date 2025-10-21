@@ -4,7 +4,7 @@ from enum import IntEnum
 
 import bases
 
-STOP_3BIT = "101"  # reserved sentinel; must be unused by actual bases
+STOP_3BIT = "010"  # reserved sentinel; must be unused by actual bases
 
 class Encoding(IntEnum):
     BIT2_ATCG = 2
@@ -19,40 +19,57 @@ ENCODING_TO_BASES = {
 }
 
 
-def _encode_base_2bit(base: str) -> int:
-    b1 = base in bases.KETO_BASES  # keto? (G,T) -> 1
-    b0 = base in bases.PYRIMIDINE_BASES  # pyrimidine? (C,T) -> 1
-    return (b1 << 1) | b0  # A=00, C=01, G=10, T=11
+def encode_base_2bit_to_int(base: str) -> int:
+    b0 = base in bases.KETO_BASES  # keto? (G,T) -> 1
+    b1 = base in bases.PYRIMIDINE_BASES  # pyrimidine? (C,T) -> 1
+    return (b0 << 1) | b1  # A=00, C=01, G=10, T=11
+def encode_base_2bit_to_string(base: str) -> str:
+    b1 = int(base in bases.KETO_BASES)  # keto? (G,T) -> 1
+    b0 = int(base in bases.PYRIMIDINE_BASES)  # pyrimidine? (C,T) -> 1
+    return f"{b1}{b0}"  # A=00, C=01, G=10, T=11
 
-def _encode_base_3bit(base: str) -> int:
+def encode_base_3bit_to_int(base: str) -> int:
     # b2 = 1 for N or gap; b2 = 0 for concrete A/C/G/T
-    if base in bases.NS_AND_GAPS:
+    if base in bases.SINGLE_BASES:
         b2 = 1
-        b1 = b0 = int(base in bases.QUADRUPLE_BASES)  # N -> 1, gap('-' or '.') -> 0
-        return (b2 << 2) | (b1 << 1) | b0  # N=111, gap=100
-    else:
-        b2 = 0
-        return (b2 << 2) | _encode_base_2bit(base)  # A=000, C=001, G=010, T=011
+        return (b2 << 2) | encode_base_2bit_to_int(base)  # A=100, C=101, G=110, T=111
+    b2 = 0
+    b1 = b0 = int(base in bases.QUADRUPLE_BASES)  # N -> 1, gap('-' or '.') -> 0
+    return (b2 << 2) | (b1 << 1) | b0  # N=011, gap=000
+    
+def encode_base_3bit_to_string(base: str) -> str:
+    # b2 = 1 for N or gap; b2 = 0 for concrete A/C/G/T
+    if base in bases.SINGLE_BASES:
+        return f"1{encode_base_2bit_to_string(base)}"  # A=100, C=101, G=110, T=111
+    b = int(base in bases.QUADRUPLE_BASES)
+    return f"0{b}{b}"  # N -> 1, gap('-' or '.') -> 0
+    
+def encode_base_4bit_to_int(base: str) -> int:
+    return sum(
+        ((single_base in bases.BIT4_BASES[base]) << i)
+        for i, single_base in enumerate("ACGT")
+    )
+def encode_base_4bit_to_string(base: str) -> str:
+    return "".join(str(int(single_base in bases.BIT4_BASES[base])) for single_base in "TGCA")
 
-def _encode_base_4bit(base: str) -> int:
-    b0 = "A" in bases.BIT4_BASES[base]
-    b1 = "C" in bases.BIT4_BASES[base]
-    b2 = "G" in bases.BIT4_BASES[base]
-    b3 = "T" in bases.BIT4_BASES[base]
-    return (b3 << 3) | (b2 << 2) | (b1 << 1) | b0
-
-
+    
 def encode_base(base: str, encoding: Encoding) -> int:
     if encoding == Encoding.BIT2_ATCG:
-        return _encode_base_2bit(base)
+        return encode_base_2bit_to_int(base)
     if encoding == Encoding.BIT3_Ns_and_GAPs:
-        return _encode_base_3bit(base)
+        return encode_base_3bit_to_int(base)
     if encoding == Encoding.BIT4_FULL_IUPAC:
-        return _encode_base_4bit(base)
+        return encode_base_4bit_to_int(base)
 
 
 def encode_base_to_bit_string(base: str, encoding: Encoding) -> str:
-    return format(encode_base(base, encoding), f"0{encoding}b")
+    if encoding == Encoding.BIT2_ATCG:
+        return encode_base_2bit_to_string(base)
+    if encoding == Encoding.BIT3_Ns_and_GAPs:
+        return encode_base_3bit_to_string(base)
+    if encoding == Encoding.BIT4_FULL_IUPAC:
+        return encode_base_4bit_to_string(base)
+    # return format(encode_base(base, encoding), f"0{encoding}b")
 
 
 # Mapping dictionaries
@@ -66,4 +83,4 @@ DECODE_MAPPING = {
     encoding_type: {value: key for key, value in mapping.items() if key != "."}
     for encoding_type, mapping in ENCODE_MAPPING.items()
 }
-assert not any(STOP_3BIT in v.values() for v in DECODE_MAPPING.values())
+assert not any(STOP_3BIT in v.values() for v in ENCODE_MAPPING.values())
