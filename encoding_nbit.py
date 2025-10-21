@@ -139,9 +139,9 @@ class EncodedNbitSequence(EncodedSequence):
         )
 
     def encode_self(self, sequence: str, encoding: Encoding | None = None) -> bytes:
-        encoding, sequence = encode_Nbit_sequence(sequence, encoding=encoding or self.encoding)
+        encoding, encoded_bytes = encode_Nbit_sequence(sequence, encoding=encoding or self.encoding)
         self.encoding = encoding
-        return sequence
+        return encoded_bytes
     
     @staticmethod
     def encode_sequence(sequence: str, encoding: Encoding | None = None) -> bytes:
