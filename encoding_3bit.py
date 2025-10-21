@@ -65,11 +65,8 @@ def decode_3bit_sequence(encoded_bytes: bytes) -> str:
         try:
             base = rev[chunk]
         except KeyError:
-            if (
-                chunk == STOP_3BIT
-                and not bits[j + 3 :].strip("0")
-                or len(chunk) < 3
-                and not bits[j:].strip("0")
+            if (chunk == STOP_3BIT and not bits[j + 3 :].strip("0")) or (
+                len(chunk) < 3 and not bits[j:].strip("0")
             ):
                 break
             raise ValueError(f"Invalid 3-bit symbol {chunk} in stream")
