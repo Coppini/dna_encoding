@@ -10,12 +10,12 @@ from code_mapping import (
     Encoding,
 )
 from generic_encoding import (
+    DecodingError,
     EncodedQuality,
     EncodedSequence,
+    EncodingError,
     bits_to_bytes,
     bytes_to_bits,
-    EncodingError,
-    DecodingError
 )
 
 ENCODING = Encoding.BIT3_Ns_and_GAPs
@@ -44,7 +44,10 @@ def encode_3bit_sequence(sequence: str) -> bytes:
     """
     sequence = sequence.upper().replace("\n", "").replace("\r", "")
     if invalid_bases := set(sequence).difference(ENCODING_TO_BASES[ENCODING]):
-        raise EncodingError(f"Unsupported symbols in sequence ({sorted(invalid_bases)})", encoding=ENCODING.value)
+        raise EncodingError(
+            f"Unsupported symbols in sequence ({sorted(invalid_bases)})",
+            encoding=ENCODING.value,
+        )
 
     mapping = ENCODE_MAPPING[ENCODING]
     data_bits = "".join(mapping[base] for base in sequence)
@@ -59,7 +62,7 @@ def encode_3bit_sequence(sequence: str) -> bytes:
         else:
             # If there are 3 or more bits to pad, use STOP symbol + zeros
             pad_0s = to_pad - len(STOP_3BIT)
-            bitstring += (STOP_3BIT + ("0" * pad_0s))
+            bitstring += STOP_3BIT + ("0" * pad_0s)
     return bits_to_bytes(bitstring)
 
 
@@ -68,7 +71,8 @@ def decode_3bit_sequence(encoded_bytes: bytes) -> str:
 
     if bits[:2] != TAG_BIT3:
         raise DecodingError(
-            f"Wrong tag in header (found {bits[:2]}, expected {TAG_BIT3})", encoding=ENCODING.value
+            f"Wrong tag in header (found {bits[:2]}, expected {TAG_BIT3})",
+            encoding=ENCODING.value,
         )
 
     rev = DECODE_MAPPING[ENCODING]
@@ -83,17 +87,25 @@ def decode_3bit_sequence(encoded_bytes: bytes) -> str:
             if chunk == STOP_3BIT:
                 if (padding := bits[j + 3 :]).strip("0"):
                     raise DecodingError(
-                        ("Non-zero padding bits found after STOP symbol"
-                        f" (expected all '0's, found '{padding}')."), encoding=ENCODING.value
+                        (
+                            "Non-zero padding bits found after STOP symbol"
+                            f" (expected all '0's, found '{padding}')."
+                        ),
+                        encoding=ENCODING.value,
                     )
             elif len(chunk) < 3:
                 if (padding := bits[j:]).strip("0"):
                     raise DecodingError(
-                        ("Non-zero padding bits found at end of stream"
-                        f" (expected all '0's, found '{padding}')."), encoding=ENCODING.value
+                        (
+                            "Non-zero padding bits found at end of stream"
+                            f" (expected all '0's, found '{padding}')."
+                        ),
+                        encoding=ENCODING.value,
                     )
             else:
-                raise EncodingError(f"Invalid 3-bit symbol {chunk} in stream", encoding=ENCODING.value)
+                raise EncodingError(
+                    f"Invalid 3-bit symbol {chunk} in stream", encoding=ENCODING.value
+                )
             break
         decoded_bases.append(base)
     return "".join(decoded_bases)

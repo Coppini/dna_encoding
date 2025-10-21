@@ -4,12 +4,12 @@ from dataclasses import dataclass
 
 from code_mapping import DECODE_MAPPING, ENCODE_MAPPING, ENCODING_TO_BASES, Encoding
 from generic_encoding import (
+    DecodingError,
     EncodedQuality,
     EncodedSequence,
+    EncodingError,
     bits_to_bytes,
     bytes_to_bits,
-    EncodingError,
-    DecodingError
 )
 
 ENCODING = Encoding.BIT4_FULL_IUPAC
@@ -43,7 +43,10 @@ def encode_4bit_sequence(sequence: str) -> bytes:
     sequence = sequence.upper().replace("\n", "").replace("\r", "")
     # Determine length and required padding
     if invalid_bases := set(sequence).difference(ENCODING_TO_BASES[ENCODING]):
-        raise EncodingError(f"Unsupported symbols in sequence ({sorted(invalid_bases)})", encoding=ENCODING.value)
+        raise EncodingError(
+            f"Unsupported symbols in sequence ({sorted(invalid_bases)})",
+            encoding=ENCODING.value,
+        )
 
     mapping = ENCODE_MAPPING[ENCODING]
 
@@ -58,21 +61,27 @@ def decode_4bit_sequence(encoded_bytes: bytes) -> str:
     bits = bytes_to_bits(encoded_bytes)
 
     # Checks if odd or even to see how much header to skip
-    if (bits[:4] == ODD_TAG):
+    if bits[:4] == ODD_TAG:
         bits_to_skip = 4  # 2b TAG + 2b PAD
-    elif (bits[:8] == EVEN_TAG_AND_PADDING):
+    elif bits[:8] == EVEN_TAG_AND_PADDING:
         bits_to_skip = 8  # 2b TAG + 6b PAD
     else:
         raise DecodingError(
-            (f"Wrong tag in header (found {bits[:4]} or {bits[:8]},"
-            f" expected {ODD_TAG} or {EVEN_TAG_AND_PADDING})"), encoding=ENCODING.value
+            (
+                f"Wrong tag in header (found {bits[:4]} or {bits[:8]},"
+                f" expected {ODD_TAG} or {EVEN_TAG_AND_PADDING})"
+            ),
+            encoding=ENCODING.value,
         )
 
     rev = DECODE_MAPPING[ENCODING]
     if len(seq_bits := bits[bits_to_skip:]) % 4 > 0:
         raise DecodingError(
-            ("Bitstring length after header is not divisible by 4"
-            f" (found length {len(seq_bits)} % 4 = {len(seq_bits) % 4})."), encoding=ENCODING.value
+            (
+                "Bitstring length after header is not divisible by 4"
+                f" (found length {len(seq_bits)} % 4 = {len(seq_bits) % 4})."
+            ),
+            encoding=ENCODING.value,
         )
     return "".join(rev[seq_bits[j : j + 4]] for j in range(0, len(seq_bits), 4))
 

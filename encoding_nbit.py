@@ -6,7 +6,13 @@ from code_mapping import ENCODING_TO_BASES, Encoding
 from encoding_2bit import TAG_BIT2, decode_2bit_sequence, encode_2bit_sequence
 from encoding_3bit import TAG_BIT3, decode_3bit_sequence, encode_3bit_sequence
 from encoding_4bit import TAG_BIT4, decode_4bit_sequence, encode_4bit_sequence
-from generic_encoding import EncodedQuality, EncodedSequence, encode_quality, EncodingError, DecodingError
+from generic_encoding import (
+    DecodingError,
+    EncodedQuality,
+    EncodedSequence,
+    EncodingError,
+    encode_quality,
+)
 
 TAG_TO_ENCODING = {
     TAG_BIT2: Encoding.BIT2_ATCG,
@@ -38,7 +44,10 @@ def choose_minimal_encoding(sequence: str) -> Encoding:
     if invalid_bases := set(sequence).difference(
         ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]
     ):
-        raise EncodingError(f"Unsupported symbols for BIT4: {list(invalid_bases)}", encoding=Encoding.BIT4_FULL_IUPAC)
+        raise EncodingError(
+            f"Unsupported symbols for BIT4: {list(invalid_bases)}",
+            encoding=Encoding.BIT4_FULL_IUPAC,
+        )
     return Encoding.BIT4_FULL_IUPAC
 
 

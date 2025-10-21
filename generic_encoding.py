@@ -4,21 +4,32 @@ from dataclasses import dataclass
 from math import ceil, sqrt
 from typing import Iterable, NamedTuple
 
+
 class EncodingError(ValueError):
-    def __init__(self, message="Encoding error: header or bitstring is improperly formatted.", encoding: int | None = None):
+    def __init__(
+        self,
+        message="Encoding error: header or bitstring is improperly formatted.",
+        encoding: int | None = None,
+    ):
         if encoding is not None:
             message = f"BIT{encoding} encoder: {message}"
         super().__init__(message)
 
+
 class DecodingError(EncodingError):
-    def __init__(self, message="Decoding error: bytes, header or bitstring is improperly formatted.", encoding: int | None = None):
+    def __init__(
+        self,
+        message="Decoding error: bytes, header or bitstring is improperly formatted.",
+        encoding: int | None = None,
+    ):
         if encoding is not None:
             message = f"BIT{encoding} decoder error: {message}"
         super().__init__(message)
 
+
 def bits_to_bytes(bitstring: str, pad: bool = False) -> bytes:
-    if (remainders := len(bitstring) % 8):
-        padding = (8 - remainders)
+    if remainders := len(bitstring) % 8:
+        padding = 8 - remainders
         if not pad:
             raise EncodingError(
                 "bitstring length is not divisible by 8 and can't be properly formatted into bytes"
@@ -177,7 +188,9 @@ class EncodedSequence:
             encoded_quality = None
         elif len(dna_sequence) != len(quality_score_str):
             if len(quality_score_str) == 0:
-                raise ValueError("Quality scores string is empty. If no quality scores are available, set quality_score_str to None.")
+                raise ValueError(
+                    "Quality scores string is empty. If no quality scores are available, set quality_score_str to None."
+                )
             raise ValueError(
                 "The length of the DNA sequence differs from the length of the provide quality scores: "
                 f"{len(dna_sequence)=} != {len(quality_score_str)=}"
