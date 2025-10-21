@@ -77,11 +77,11 @@ def decode_Nbit_sequence(encoded_bytes: bytes, encoding: Encoding | None = None)
     """
     encoding = encoding or detect_tag(encoded_bytes)
     if encoding == Encoding.BIT2_ATCG:
-        return decode_2bit_sequence(encoded_bytes)
+        return encoding, decode_2bit_sequence(encoded_bytes)
     if encoding == Encoding.BIT3_Ns_and_GAPs:
-        return decode_3bit_sequence(encoded_bytes)
+        return encoding, decode_3bit_sequence(encoded_bytes)
     if encoding == Encoding.BIT4_FULL_IUPAC:
-        return decode_4bit_sequence(encoded_bytes)
+        return encoding, decode_4bit_sequence(encoded_bytes)
     raise ValueError(f"Invalid encoding: {encoding}")
     
 
@@ -157,4 +157,5 @@ class EncodedNbitSequence(EncodedSequence):
     
     @staticmethod
     def decode_sequence(encoded_sequence: bytes, encoding: Encoding | None = None) -> str:
-        return decode_Nbit_sequence(encoded_sequence, encoding=encoding)
+        encoding, sequence = decode_Nbit_sequence(encoded_sequence, encoding=encoding)
+        return sequence
