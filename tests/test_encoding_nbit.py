@@ -21,7 +21,7 @@ def test_encode_decode_known_examples(dna_sequence, expected_sequence, encoding_
     encoded_dna = EncodedNbitSequence.from_sequence(dna_sequence)
 
     # Assert
-    assert encoded_dna.encoded_sequence.encoding_type == encoding_type
+    assert encoded_dna.encoding == encoding_type
     assert encoded_dna.sequence == expected_sequence
 
 
@@ -54,7 +54,7 @@ def test_encode_decode_random_fasta(encoding_type: Encoding, header: bool):
     )
 
     # Assert
-    assert encoded_dna.encoded_sequence.encoding_type == encoding_type
+    assert encoded_dna.encoding == encoding_type
     assert encoded_dna.sequence == expected_dna_sequence
     assert encoded_dna.quality == quality
     # assert average_quality is float("nan")
@@ -106,7 +106,7 @@ def test_encode_decode_random_fastq(
     )
 
     # Assert
-    assert encoded_dna.encoded_sequence.encoding_type == encoding_type
+    assert encoded_dna.encoding == encoding_type
     assert encoded_dna.sequence == expected_dna_sequence
     assert encoded_dna.quality == quality
     assert encoded_dna.average_quality == average_quality

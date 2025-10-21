@@ -2,10 +2,7 @@
 
 # Bases
 ## GAP
-ZERO_BASES = {
-    "-": "-",
-    ".": "-"
-}
+ZERO_BASES = {"-": "-", ".": "-"}
 ## REGULAR ATCG SINGLE BASES
 SINGLE_BASES = {
     "A": "A",
@@ -35,14 +32,23 @@ TRIPLE_BASES = {
 ## N, DEGENERATE BASE THAT CAN BE ANY NUCLEOTIDE
 QUADRUPLE_BASES = {"N": "ACGT"}
 
-REGULAR_BASES = SINGLE_BASES
-BIT2_BASES = REGULAR_BASES
+BIT2_BASES = SINGLE_BASES
 
-NS_AND_GAPS = {key: value for key, value in list(ZERO_BASES.items()) + list(QUADRUPLE_BASES.items())}
-BIT3_BASES = {key: value for key, value in list(BIT2_BASES.items()) + list(NS_AND_GAPS.items())}
+NS_AND_GAPS = {
+    key: value
+    for key, value in list(ZERO_BASES.items()) + list(QUADRUPLE_BASES.items())
+}
+BIT3_BASES = {
+    key: value for key, value in list(BIT2_BASES.items()) + list(NS_AND_GAPS.items())
+}
 
-DEGENERATE_BASES = {key: value for key, value in list(DOUBLE_BASES.items()) + list(TRIPLE_BASES.items())}
-BIT4_BASES = {key: value for key, value in list(BIT3_BASES.items()) + list(DEGENERATE_BASES.items())}
+DEGENERATE_BASES = {
+    key: value for key, value in list(DOUBLE_BASES.items()) + list(TRIPLE_BASES.items())
+}
+BIT4_BASES = {
+    key: value
+    for key, value in list(BIT3_BASES.items()) + list(DEGENERATE_BASES.items())
+}
 
 KETO_BASES = {"G", "T"}
 AMINO_BASES = {"A", "C"}

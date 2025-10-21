@@ -1,64 +1,113 @@
 #!/usr/bin/env python3
-
 from dataclasses import dataclass
-from math import ceil, sqrt
-from typing import Iterable, NamedTuple, Optional
+from typing import Callable, NamedTuple
 
-from bases import DEGENERATE_BASES, NS_AND_GAPS
-from code_mapping import DECODE_MAPPING, ENCODE_MAPPING, ENCODING_TO_BASES, Encoding
+from generic_encoding import EncodedSequence, EncodedQuality, encode_quality
+from code_mapping import ENCODING_TO_BASES, Encoding
+
+from encoding_2bit import (
+    encode_2bit_sequence,
+    decode_2bit_sequence,
+    TAG_BIT2
+)
+from encoding_3bit import (
+    encode_3bit_sequence,
+    decode_3bit_sequence,
+    TAG_BIT3
+)
+from encoding_4bit import (
+    encode_4bit_sequence,
+    decode_4bit_sequence,
+    TAG_BIT4
+)
+
+TAG_TO_ENCODING = {
+    TAG_BIT2: Encoding.BIT2_ATCG,
+    TAG_BIT3: Encoding.BIT3_Ns_and_GAPs,
+    TAG_BIT4: Encoding.BIT4_FULL_IUPAC
+}
+
+def can_encode_with(encoding: Encoding, sequence: str) -> bool:
+    ENCODING_TO_BASES[encoding]
+    return set(sequence).issubset(ENCODING_TO_BASES[encoding])
+
+class EncodingAndEncodedBytes(NamedTuple):
+    encoding: Encoding
+    encoded_bytes: bytes
+
+class EncodingAndSequence(NamedTuple):
+    encoding: Encoding
+    sequence: str
+
+def choose_minimal_encoding(sequence: str) -> Encoding:
+    if can_encode_with(Encoding.BIT2_ATCG, sequence):
+        return Encoding.BIT2_ATCG
+    if can_encode_with(Encoding.BIT3_Ns_and_GAPs, sequence):
+        return Encoding.BIT3_Ns_and_GAPs
+    if invalid_bases := set(sequence).difference(ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]):
+        raise ValueError(f"Unsupported symbols for BIT4: {list(invalid_bases)}")
+    return Encoding.BIT4_FULL_IUPAC
+
+def detect_tag(encoded_bytes: bytes) -> Encoding:
+    bits = f"{encoded_bytes[0]:08b}"
+    tag = bits[:2]
+    try:
+        return TAG_TO_ENCODING[tag]
+    except KeyError:
+        raise ValueError(f"Unknown or unsupported tag: {tag}")
+
+def encode_Nbit_sequence(sequence: str, encoding: Encoding | None = None) -> EncodingAndEncodedBytes:
+    """Choose the smallest valid encoding that supports `sequence` and encode it."""
+    sequence = sequence.upper().replace("\n", "").replace("\r", "")
+    encoding = encoding or choose_minimal_encoding(sequence)
+    if encoding == Encoding.BIT2_ATCG:
+        return encoding, encode_2bit_sequence(sequence)
+    if encoding == Encoding.BIT3_Ns_and_GAPs:
+        return encoding, encode_3bit_sequence(sequence)
+    if encoding == Encoding.BIT4_FULL_IUPAC:
+        return encoding, encode_4bit_sequence(sequence)
+    raise ValueError(f"Unsupported Encoding type: {encoding}")
 
 
-class EncodedSequence(NamedTuple):
-    sequence_length: int  # Length of the sequence
-    encoded_bytes: bytes  # Encoded nucleotide sequence bytes
-    encoding_type: Encoding  # Encoding type (2 for 2-bit encoding, 3 for 3-bit encoding, 4 for 4-bit encoding)
-    # 2-bit encoding: handles only the 4 regular nucleotides: ATCG
-    # 3-bit encoding: adds handling of Ns and GAPs as well
-    # 2-bit encoding: adds handling of other IUPAC codes (double and triple bases)
-
-    def decode(self) -> str:
-        return EncodedNbitSequence.decode_sequence(
-            length=self.sequence_length,
-            encoded_bytes=self.encoded_bytes,
-            encoding_type=self.encoding_type,
-        )
-
-
-class EncodedQuality(NamedTuple):
-    encoded_quality: bytes
-    minimum_quality: int
-
-    def decode(self) -> str:
-        return EncodedNbitSequence.decode_quality(encoded_quality=self)
-
-    def decode_into_scores(self) -> str:
-        return list(EncodedNbitSequence.decode_quality_into_scores(encoded_quality=self))
+def decode_Nbit_sequence(encoded_bytes: bytes, encoding: Encoding | None = None) -> EncodingAndSequence:
+    """
+    Auto-detect the encoding by roundtripping with each decoder.
+    We attempt decoders in order 2-bit, 3-bit, then 4-bit; for each,
+    we decode -> re-encode with the same codec -> compare bytes.
+    The first exact roundtrip match wins.
+    """
+    encoding = encoding or detect_tag(encoded_bytes)
+    if encoding == Encoding.BIT2_ATCG:
+        return decode_2bit_sequence(encoded_bytes)
+    if encoding == Encoding.BIT3_Ns_and_GAPs:
+        return decode_3bit_sequence(encoded_bytes)
+    if encoding == Encoding.BIT4_FULL_IUPAC:
+        return decode_4bit_sequence(encoded_bytes)
+    raise ValueError(f"Invalid encoding: {encoding}")
+    
 
 
 @dataclass
-class EncodedNbitSequence:
+class EncodedNbitSequence(EncodedSequence):
     """
-    Represents a DNA sequence with its encoding, quality scores, and header information.
+    A sequence container that uses the minimal N-bit encoding automatically
+    and auto-detects on decode.
     """
-
-    encoded_sequence: (
-        EncodedSequence  # The encoded sequence and metadata required to decode it
-    )
-    encoded_quality: Optional[EncodedQuality] = (
-        None  # Quality scores as bytes (optional)
-    )
-    header: Optional[str] = None  # Header information (optional)
+    encoded_sequence: bytes
+    encoded_quality: EncodedQuality | None = None
+    encoding: Encoding | None = None
+    header: str | None = None
 
     @classmethod
     def from_sequence(
         cls,
         dna_sequence: str,
-        quality_score_str: Optional[str] = None,
-        header: Optional[str] = None,
+        quality_score_str: str | None = None,
+        header: str | None = None,
         ascii_base: int = 33,
     ):
         """
-        Create a EncodedNbitSequence instance from a DNA sequence, quality scores, and header information.
+        Create a EncodedSequence instance from a DNA sequence, quality scores, and header information.
 
         Args:
             dna_sequence (str): The DNA sequence.
@@ -67,9 +116,8 @@ class EncodedNbitSequence:
             header (Optional[str]): Header information (optional).
             ascii_base (int): ASCII base value (default is 33 for Illumina 1.8+ encoding).
 
-
         Returns:
-            EncodedNbitSequence: Instance of EncodedNbitSequence.
+            EncodedSequence: Instance of EncodedSequence.
         """
         if quality_score_str is None:
             encoded_quality = None
@@ -80,287 +128,34 @@ class EncodedNbitSequence:
             )
         else:
             # Encode quality scores if provided
-            encoded_quality = cls.encode_quality(
-                quality_score_str, ascii_base=ascii_base
-            )
+            encoded_quality = encode_quality(quality_score_str, ascii_base=ascii_base)
 
         # Encode the DNA sequence
-        encoded_sequence = cls.encode_sequence(dna_sequence)
+        encoding, encoded_bytes = encode_Nbit_sequence(dna_sequence)
 
-        # Create and return the EncodedNbitSequence instance
+        # Create and return the Encoded2bitSequence instance
         return cls(
-            encoded_sequence=encoded_sequence,
+            encoded_sequence=encoded_bytes,
+            encoding=encoding,
             encoded_quality=encoded_quality,
             header=header,
         )
 
+    def encode_self(self, sequence: str, encoding: Encoding | None = None) -> bytes:
+        encoding, sequence = encode_Nbit_sequence(sequence, encoding=encoding or self.encoding)
+        self.encoding = encoding
+        return sequence
+    
     @staticmethod
-    def determine_encoding_type(bases: Iterable) -> Encoding:
-        """
-        Determine the encoding type based on the given DNA sequence.
+    def encode_sequence(sequence: str, encoding: Encoding | None = None) -> bytes:
+        encoding, encoded_bytes = encode_Nbit_sequence(sequence, encoding=encoding)
+        return encoded_bytes
 
-        Args:
-            sequence (str): The DNA sequence.
-
-        Returns:
-            Encoding: The encoding type (bits to be used per nucleotide)
-        """
-        unique_bases = set(bases)
-        encoding_type = (
-            Encoding.BIT4_FULL_IUPAC
-            if unique_bases.intersection(DEGENERATE_BASES)
-            else (
-                Encoding.BIT3_Ns_and_GAPs
-                if unique_bases.intersection(NS_AND_GAPS)
-                else Encoding.BIT2_ATCG
-            )
-        )
-        if invalid_bases := unique_bases.difference(
-            ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]
-        ):
-            raise ValueError(f"Invalid bases in the sequence: {list(invalid_bases)}")
-        return encoding_type
-
+    def decode_self(self, encoded_sequence: bytes, encoding: Encoding | None = None) -> str:
+        encoding, sequence = decode_Nbit_sequence(encoded_sequence, encoding=encoding or self.encoding)
+        self.encoding = encoding
+        return sequence
+    
     @staticmethod
-    def encode_sequence(sequence: str) -> EncodedSequence:
-        """
-        Encode a DNA sequence and return the sequence length, encoded bytes, and encoding type.
-
-        Args:
-            sequence (str): The DNA sequence to encode.
-
-        Returns:
-            tuple: Sequence length, Encoded bytes, and encoding type.
-        """
-        sequence = sequence.upper().replace("\n", "").replace("\r", "")
-
-        # Determine the encoding type based on the sequence content
-        encoding_type = EncodedNbitSequence.determine_encoding_type(set(sequence))
-
-        # Determine length and required padding
-        length = len(sequence)
-        padding_length = (8 - ((length * encoding_type) % 8)) % 8
-
-        # Create a binary string based on the mapping
-        binary_string = "0" * padding_length
-        for nucleotide in sequence:
-            binary_string += ENCODE_MAPPING[encoding_type][nucleotide]
-
-        # Convert the binary string to bytes
-        encoded_bytes = int(binary_string, 2).to_bytes(
-            length=((len(binary_string) + 7) // 8), byteorder="big", signed=False
-        )
-        # encoded_bytes = np.packbits(np.frombuffer(binary_string.encode('utf-8'), dtype=np.uint8) - ord('0')).tobytes()
-
-        return EncodedSequence(length, encoded_bytes, encoding_type)
-
-    @staticmethod
-    def decode_sequence(
-        length: int, encoded_bytes: bytes, encoding_type: Encoding
-    ) -> str:
-        """
-        Decode an encoded DNA sequence.
-
-        Args:
-            length (int): Sequence length
-            encoded_bytes (bytes): Encoded bytes of the DNA sequence.
-            encoding_type (Encoding): Encoding type.
-
-        Returns:
-            str: Decoded DNA sequence.
-        """
-        # Convert the byte array back to a binary string
-        padding_length = (8 - ((length * encoding_type) % 8)) % 8
-        binary_string = "".join(format(byte, "08b") for byte in encoded_bytes)
-
-        # Remove the padding bits
-        binary_string = binary_string[padding_length:]
-
-        # Map the binary strings back to the corresponding nucleotide
-        try:
-            return "".join(
-                DECODE_MAPPING[encoding_type][binary_string[i : i + encoding_type]]
-                for i in range(0, len(binary_string), encoding_type)
-            )
-        except KeyError as exc:
-            raise ValueError(f"Invalid bytes in the encoded sequence") from exc
-
-    @staticmethod
-    def encode_quality(quality_score_str: str, ascii_base: int = 33) -> EncodedQuality:
-        """
-        Encode quality scores string into bytes.
-
-        Args:
-            quality_score_str (str): Quality scores string.
-            ascii_base (int): ASCII base value (default is 33 for Illumina 1.8+ encoding).
-
-        Returns:
-            EncodedQuality: Encoded quality scores and minimum quality, required to unencode it.
-        """
-        quality_scores = [ord(char) - ascii_base for char in quality_score_str]
-        minimum_quality = min(quality_scores)
-        maximum_quality = max(quality_scores)
-
-        # Calculate the maximum value that can be represented using the determined bitsize
-        bitsize = ceil(sqrt(maximum_quality - minimum_quality + 1))
-        max_value = (2**bitsize) - 1
-        encoded_quality = bytearray()
-        # encoded_quality.append(bitsize)
-        count = 0
-        prev_score = None
-        for score in quality_scores:
-            encoded_score = score - minimum_quality
-            # encoded = format(score - minimum_quality, f'0{bitsize}b')
-            if prev_score is None:
-                prev_score = encoded_score
-                count = 1
-            elif encoded_score != prev_score:
-                encoded_quality.append(count)
-                encoded_quality.append(prev_score)
-                prev_score = encoded_score
-                count = 1
-            elif count < max_value:
-                count += 1
-            else:
-                encoded_quality.append(count)
-                encoded_quality.append(prev_score)
-                prev_score = encoded_score
-                count = 1
-
-        # Handle the last group of scores
-        encoded_quality.append(count)
-        encoded_quality.append(prev_score)
-
-        return EncodedQuality(bytes(encoded_quality), minimum_quality)
-
-    @staticmethod
-    def decode_quality_into_scores(encoded_quality: EncodedQuality) -> Iterable[int]:
-        """
-        Decode quality scores bytes into a string.
-
-        Args:
-            encoded_quality (EncodedQuality): Encoded quality scores along with minimum quality.
-
-        Returns:
-            Iterable[int]: Returns a generator with the quality scores as integers.
-        """
-        # Extract bitsize from the first byte of encoded bytes
-        # bitsize = encoded_quality.encoded_quality[0]
-
-        # Initialize variables for tracking current score and count
-        score = None
-        count = 0
-
-        # Iterate through the rest of the bytes in encoded bytes
-        for i in range(0, len(encoded_quality.encoded_quality), 2):
-            count = encoded_quality.encoded_quality[i]
-            score = encoded_quality.encoded_quality[i + 1]
-            for _ in range(count):
-                yield score + encoded_quality.minimum_quality
-
-    @staticmethod
-    def decode_quality(encoded_quality: EncodedQuality, ascii_base: int = 33) -> str:
-        """
-        Decode quality scores bytes into a string.
-
-        Args:
-            encoded_quality (EncodedQuality): Encoded quality scores along with minimum quality.
-            ascii_base (int): ASCII base value (default is 33 for Illumina 1.8+ encoding).
-
-        Returns:
-            str: Decoded quality scores string.
-        """
-        return "".join(
-            chr(quality_score + ascii_base)
-            for quality_score in EncodedNbitSequence.decode_quality_into_scores(encoded_quality)
-        )
-
-    @property
-    def sequence(self) -> str:
-        """
-        Get the decoded DNA sequence.
-
-        Returns:
-            str: Decoded DNA sequence.
-        """
-        return self.decode_sequence(*self.encoded_sequence)
-
-    @property
-    def quality(self) -> Optional[str]:
-        """
-        Get the decoded quality scores string.
-
-        Returns:
-            Optional[str]: Decoded quality scores string if available, else None.
-        """
-        if self.encoded_quality:
-            return self.decode_quality(self.encoded_quality)
-
-    @property
-    def quality_scores(self) -> Optional[list[int]]:
-        """
-        Get the quality scores as a list of integers.
-
-        Returns:
-            Optional[list[int]]: List of quality scores if available, else None.
-        """
-        if self.encoded_quality:
-            return list(self.decode_quality_into_scores(self.encoded_quality))
-
-    @property
-    def average_quality(self) -> float:
-        """
-        Calculate the average quality score.
-
-        Returns:
-            float: Average quality score.
-        """
-        if self.encoded_quality:
-            quality_scores = list(self.decode_quality_into_scores(self.encoded_quality))
-            return sum(quality_scores) / len(quality_scores)
-        return float("NaN")
-
-    def __str__(self) -> str:
-        """
-        Get a string representation of the EncodedNbitSequence.
-
-        Returns:
-            str: String representation of the EncodedNbitSequence.
-        """
-        if quality := self.quality:
-            return f"{self.sequence}\t{quality}"
-        return self.sequence
-
-    @property
-    def fasta(self) -> str:
-        """
-        Get the DNA sequence in FASTA format.
-
-        Returns:
-            str: DNA sequence in FASTA format.
-        """
-        return (
-            ">"
-            + (self.header or str(abs(hash(self.encoded_sequence))))
-            + "\n"
-            + self.sequence
-        )
-
-    @property
-    def fastq(self) -> str:
-        """
-        Get the DNA sequence in FASTQ format.
-
-        Returns:
-            str: DNA sequence in FASTQ format.
-        """
-        if not (quality := self.quality):
-            raise ValueError("No quality information")
-        return (
-            "@"
-            + (self.header or str(abs(hash(self.encoded_sequence))))
-            + "\n"
-            + self.sequence
-            + "\n+\n"
-            + quality
-        )
+    def decode_sequence(encoded_sequence: bytes, encoding: Encoding | None = None) -> str:
+        return decode_Nbit_sequence(encoded_sequence, encoding=encoding)
