@@ -47,10 +47,10 @@ def encode_base_3bit_to_string(base: str) -> str:
 def encode_base_4bit_to_int(base: str) -> int:
     return sum(
         ((single_base in bases.BIT4_BASES[base]) << i)
-        for i, single_base in enumerate("ACGT")
+        for i, single_base in enumerate(sorted("ACGT", reverse=True))
     )
 def encode_base_4bit_to_string(base: str) -> str:
-    return "".join(str(int(single_base in bases.BIT4_BASES[base])) for single_base in "TGCA")
+    return "".join(str(int(single_base in bases.BIT4_BASES[base])) for single_base in "ACGT")
 
     
 def encode_base(base: str, encoding: Encoding) -> int:
