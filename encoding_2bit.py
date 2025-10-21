@@ -32,7 +32,8 @@ def encode_2bit_sequence(sequence: str) -> bytes:
 
     # Compute how many *2-bit pairs* needed to reach next byte boundary
     length_before_padding = 4 + len(data_bits) # 2 from TAG + 2 from PAD_LEN info
-    pad_bits = (8 - length_before_padding % 8) % 8
+    remainders = (length_before_padding % 8)
+    pad_bits = (8 - remainders) if remainders else 0
     pad_len = pad_bits // 2
     header = TAG_BIT2 + format(pad_len, "02b")
 

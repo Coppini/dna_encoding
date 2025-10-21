@@ -29,7 +29,8 @@ def encode_3bit_sequence(sequence: str) -> bytes:
     data_bits = "".join(mapping[base] for base in sequence)
 
     bitstring = TAG_BIT3 + data_bits
-    if (to_pad := (8 - (len(bitstring) % 8))):
+    if (remainders := (len(bitstring) % 8)):
+        to_pad = (8 - remainders)
         bitstring += (
             "0" * to_pad
             if to_pad < 3 
