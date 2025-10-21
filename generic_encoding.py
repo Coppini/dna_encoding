@@ -4,13 +4,16 @@ from dataclasses import dataclass
 from math import ceil, sqrt
 from typing import Iterable, NamedTuple
 
+from code_mapping import Encoding
+
 
 class EncodingError(ValueError):
     def __init__(
         self,
         message="Encoding error: header or bitstring is improperly formatted.",
-        encoding: int | None = None,
+        encoding: Encoding | None = None,
     ):
+        self.encoding = encoding
         if encoding is not None:
             message = f"BIT{encoding} encoder: {message}"
         super().__init__(message)
@@ -20,8 +23,9 @@ class DecodingError(EncodingError):
     def __init__(
         self,
         message="Decoding error: bytes, header or bitstring is improperly formatted.",
-        encoding: int | None = None,
+        encoding: Encoding | None = None,
     ):
+        self.encoding = encoding
         if encoding is not None:
             message = f"BIT{encoding} decoder error: {message}"
         super().__init__(message)

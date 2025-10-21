@@ -45,7 +45,7 @@ def choose_minimal_encoding(sequence: str) -> Encoding:
         ENCODING_TO_BASES[Encoding.BIT4_FULL_IUPAC]
     ):
         raise EncodingError(
-            f"Unsupported symbols for BIT4: {list(invalid_bases)}",
+            f"Unsupported symbols in sequence ({sorted(invalid_bases)})",
             encoding=Encoding.BIT4_FULL_IUPAC,
         )
     return Encoding.BIT4_FULL_IUPAC

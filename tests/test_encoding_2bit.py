@@ -129,6 +129,21 @@ def test_encode_decode_random_fastq(
         assert fasta_header.startswith(">")
         assert fastq_header.startswith("@")
 
+@pytest.mark.parametrize(
+    "sequence, invalid_bases",
+    [
+        ("ATCGN", "N"),
+        ("ATCGY", "Y"),
+        ("ATCGZ", "Z"),
+    ],
+)
+def test_encoding_error_invalid_bases(sequence, invalid_bases):
+    with pytest.raises(EncodingError) as exc_info:
+        Encoded2bitSequence.from_sequence(sequence)
+    assert exc_info.value.encoding == Encoding.BIT2_ATCG
+    assert f"['{invalid_bases}']" in str(exc_info.value)
+    assert "Unsupported symbols in sequence" in str(exc_info.value)
+
 def test_decode_invalid_tag():
     # Arrange: create an invalid tag (should be '01')
     invalid_bytes = bytes([0b11000000])  # '11' as tag (BIT4)

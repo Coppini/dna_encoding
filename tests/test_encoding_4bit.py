@@ -130,6 +130,15 @@ def test_encode_decode_random_fastq(
         assert fasta_header.startswith(">")
         assert fastq_header.startswith("@")
 
+def test_encoding_error_invalid_bases():
+    sequence = "ATCGZ"
+    invalid_bases = "Z"
+    with pytest.raises(EncodingError) as exc_info:
+        Encoded4bitSequence.from_sequence(sequence)
+    assert exc_info.value.encoding == Encoding.BIT4_FULL_IUPAC
+    assert f"['{invalid_bases}']" in str(exc_info.value)
+    assert "Unsupported symbols in sequence" in str(exc_info.value)
+
 
 def test_decode_invalid_tag():
     # Arrange: create an invalid tag (should be '01')
