@@ -60,6 +60,11 @@ def encode_quality(quality_score_str: str, ascii_base: int = 33) -> EncodedQuali
     """
     quality_scores = [ord(char) - ascii_base for char in quality_score_str]
     minimum_quality = min(quality_scores)
+    if minimum_quality < 0:
+        raise ValueError(
+            "Quality scores string contains invalid characters for the given ASCII base "
+            f"({ascii_base}): minimum quality score is {minimum_quality}."
+        )
     maximum_quality = max(quality_scores)
 
     # Calculate the maximum value that can be represented using the determined bitsize
@@ -171,6 +176,8 @@ class EncodedSequence:
         if quality_score_str is None:
             encoded_quality = None
         elif len(dna_sequence) != len(quality_score_str):
+            if len(quality_score_str) == 0:
+                raise ValueError("Quality scores string is empty. If no quality scores are available, set quality_score_str to None.")
             raise ValueError(
                 "The length of the DNA sequence differs from the length of the provide quality scores: "
                 f"{len(dna_sequence)=} != {len(quality_score_str)=}"
